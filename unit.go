@@ -1,7 +1,12 @@
-// Package size implements parsing for string values with units.
-package size
+// Copyright -2017 the u-root Authors. All rights reserved
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package unit implements parsing for string values with units.
+package unit
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"unicode"
@@ -24,11 +29,14 @@ type Value struct {
 	unit *Unit
 
 	// value is the integer value.
-	value int64
+	Value int64
 
 	// sign is the explicit sign given by the string converted to the
 	// integer.
-	sign Sign
+	ExplicitSign Sign
+
+	// set to false if this is the default value, true if the the option was given
+	IsSet bool
 }
 
 // Unit is a map of unit names to conversion multipliers.
@@ -43,6 +51,7 @@ func NewUnit(m map[string]int64) (*Unit, error) {
 	for _, mult := range m {
 		if mult == 1 {
 			found = true
+			break
 		}
 	}
 	if !found {
@@ -51,12 +60,24 @@ func NewUnit(m map[string]int64) (*Unit, error) {
 	return &Unit{m}, nil
 }
 
-func (u *Unit) NewValue(value int64, sign Sign) *Value {
-	return &Value{
-		value: value,
-		sign:  sign,
-		unit:  u,
+func (u *Unit) NewValue(value int64, explicitSign Sign) (*Value, error) {
+	if (value < 0 && explicitSign == Positive) || (value > 0 && explicitSign == Negative) {
+		return nil, errors.New("Invalid value/explicitSign combination")
 	}
+
+	return &Value{
+		unit:         u,
+		Value:        value,
+		ExplicitSign: explicitSign,
+	}, nil
+}
+
+func (u *Unit) MustNewValue(value int64, explicitSign Sign) *Value {
+	v, err := u.NewValue(value, explicitSign)
+	if err != nil {
+		panic(fmt.Sprintf("MustNewValue error: %v", err))
+	}
+	return v
 }
 
 func (u *Unit) ValueFromString(str string) (*Value, error) {
@@ -72,22 +93,23 @@ func (u *Unit) ValueFromString(str string) (*Value, error) {
 func (s Value) String() string {
 	var bestName string
 	bestMult := int64(1)
+	if s.unit == nil {
+		return ""
+	}
 	for name, mult := range s.unit.mapping {
-		if s.value%mult == 0 && mult >= bestMult {
+		if s.Value%mult == 0 && mult >= bestMult {
 			bestName = name
 			bestMult = mult
 		}
 	}
 	var sign string
-	if s.sign == Negative {
-		sign = "-"
-	} else if s.sign == Positive {
+	if s.ExplicitSign == Positive {
 		sign = "+"
 	}
 	if bestName == "" {
-		return fmt.Sprintf("%s%d (no unit)", sign, s.value)
+		return fmt.Sprintf("%s%d (no unit)", sign, s.Value)
 	}
-	return fmt.Sprintf("%s%d%s", sign, s.value/bestMult, bestName)
+	return fmt.Sprintf("%s%d%s", sign, s.Value/bestMult, bestName)
 }
 
 // Get implements flag.Getter.Get.
@@ -103,10 +125,10 @@ func (s *Value) Set(str string) error {
 
 	start, end := 0, len(str)
 	if str[0] == '+' {
-		s.sign = Positive
+		s.ExplicitSign = Positive
 		start++
 	} else if str[0] == '-' {
-		s.sign = Negative
+		s.ExplicitSign = Negative
 		start++
 	}
 
@@ -125,8 +147,12 @@ func (s *Value) Set(str string) error {
 	unitName := str[end:]
 	mult, ok := s.unit.mapping[unitName]
 	if !ok {
-		return fmt.Errorf("unit %q is not valid", unitName)
+		if len(unitName) != 0 {
+			return fmt.Errorf("unit %q is not valid", unitName)
+		}
+		mult = 1
 	}
-	s.value = value * mult
+	s.Value = value * mult
+	s.IsSet = true
 	return nil
 }

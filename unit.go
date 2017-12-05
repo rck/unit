@@ -12,6 +12,32 @@ import (
 	"unicode"
 )
 
+const (
+	_       = iota
+	K int64 = 1 << (10 * iota)
+	M
+	G
+	T
+	P
+	E
+)
+
+var DefaultUnits map[string]int64 = map[string]int64{
+	"B":  1,
+	"K":  K,
+	"M":  M,
+	"G":  G,
+	"T":  T,
+	"P":  P,
+	"E":  E,
+	"KB": 1000,
+	"MB": 1000 * 1000,
+	"GB": 1000 * 1000 * 1000,
+	"TB": 1000 * 1000 * 1000 * 1000,
+	"PB": 1000 * 1000 * 1000 * 1000 * 1000,
+	"EB": 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
+}
+
 // Sign is the sign associated with a unit's value.
 type Sign uint8
 

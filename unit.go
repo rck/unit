@@ -86,6 +86,14 @@ func NewUnit(m map[string]int64) (*Unit, error) {
 	return &Unit{m}, nil
 }
 
+func MustNewUnit(m map[string]int64) *Unit {
+	u, err := NewUnit(m)
+	if err != nil {
+		panic(fmt.Sprintf("MustNewUnit error: %v", err))
+	}
+	return u
+}
+
 func (u *Unit) NewValue(value int64, explicitSign Sign) (*Value, error) {
 	if (value < 0 && explicitSign == Positive) || (value > 0 && explicitSign == Negative) {
 		return nil, errors.New("Invalid value/explicitSign combination")

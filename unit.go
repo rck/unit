@@ -53,7 +53,7 @@ const (
 	None Sign = iota
 	// Negative signals that an explicit negative sign is set.
 	Negative
-	// Positive signals that an explicit positve sign is set.
+	// Positive signals that an explicit positive sign is set.
 	Positive
 )
 

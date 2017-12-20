@@ -37,6 +37,7 @@ var DefaultUnits = map[string]int64{
 	"T":  T,
 	"P":  P,
 	"E":  E,
+	"kB": 1000,
 	"KB": 1000,
 	"MB": 1000 * 1000,
 	"GB": 1000 * 1000 * 1000,

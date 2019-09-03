@@ -66,23 +66,23 @@ func TestUnit(t *testing.T) {
 	for _, test := range unitTests {
 		v, err := u.ValueFromString(test.in)
 		if test.err && err == nil {
-			t.Fatalf("Expected that rest '%s' returns an error\n", test.in)
+			t.Fatalf("Expected that test '%s' returns an error\n", test.in)
 		} else if !test.err && err != nil {
-			t.Fatalf("Expected that rest '%s' does not return an error\n", test.in)
+			t.Fatalf("Expected that test '%s' does not return an error\n", test.in)
 		} else if test.err && err != nil {
 			continue
 		}
 
 		if v.Value != test.value {
-			t.Fatalf("Expected that rest '%s' returns %d as bytes, but got %d\n", test.in, test.value, v.Value)
+			t.Fatalf("Expected that test '%s' returns %d as bytes, but got %d\n", test.in, test.value, v.Value)
 		}
 
 		if v.String() != test.out {
-			t.Fatalf("Expected that rest '%s' returns %s as string, but got %s\n", test.in, test.out, v)
+			t.Fatalf("Expected that test '%s' returns %s as string, but got %s\n", test.in, test.out, v)
 		}
 
 		if v.ExplicitSign != test.explicitSign {
-			t.Fatalf("Expected that rest '%s' has explicit Sign %d, but got %d\n", test.in, test.explicitSign, v.ExplicitSign)
+			t.Fatalf("Expected that test '%s' has explicit Sign %d, but got %d\n", test.in, test.explicitSign, v.ExplicitSign)
 		}
 	}
 }

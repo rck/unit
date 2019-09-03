@@ -90,7 +90,8 @@ func NewUnit(m map[string]int64) (*Unit, error) {
 	for _, mult := range m {
 		if mult == 1 {
 			found = true
-			break
+		} else if mult == 0 {
+			return nil, fmt.Errorf("mapping contains unit that maps to illegal multiplier 0 for %v", m)
 		}
 	}
 	if !found {

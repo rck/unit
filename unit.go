@@ -135,7 +135,7 @@ func (u *Unit) MustNewValue(value int64, explicitSign Sign) *Value {
 
 // ValueFromString converts the given string to a Value.
 // The string is allowed to have '+'/'-' as prefix, followed by a number, and
-// an optional unit character as defined in its mapping.
+// an optional unit name as defined in its mapping.
 func (u *Unit) ValueFromString(str string) (*Value, error) {
 	s := &Value{unit: u}
 

@@ -8,6 +8,7 @@ package unit
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"unicode"
 )
@@ -206,6 +207,9 @@ func (s *Value) Set(str string) error {
 			return fmt.Errorf("unit %q is not valid", unitName)
 		}
 		mult = 1
+	}
+	if (value > 0 && (math.MaxInt64/mult < value)) || (value < 0 && (math.MinInt64/mult > value)) {
+		return fmt.Errorf("size %d with unit %q is out of range", value, unitName)
 	}
 	s.Value = value * mult
 	s.IsSet = true

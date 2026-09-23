@@ -154,6 +154,9 @@ func (s Value) String() string {
 		return ""
 	}
 	for name, mult := range s.unit.mapping {
+		if name == "" {
+			continue
+		}
 		if s.Value%mult == 0 && mult >= bestMult {
 			bestName = name
 			bestMult = mult

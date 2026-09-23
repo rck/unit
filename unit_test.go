@@ -160,3 +160,28 @@ func TestUnit(t *testing.T) {
 		}
 	}
 }
+
+// TestStringSkipsEmptyUnit checks that a default unit mapped to "" never wins
+// the String() tie against a named unit with the same multiplier.
+func TestStringSkipsEmptyUnit(t *testing.T) {
+	u := MustNewUnit(map[string]int64{
+		"":    1024 * 1024 * 1024,
+		"B":   1,
+		"GiB": 1024 * 1024 * 1024,
+	})
+
+	v, err := u.ValueFromString("10")
+	if err != nil {
+		t.Fatalf("Expected that '10' does not return an error: %v\n", err)
+	}
+	if v.Value != 10*1024*1024*1024 {
+		t.Fatalf("Expected that '10' uses the \"\" unit, but got %d\n", v.Value)
+	}
+
+	// map iteration order is random, so repeat to hit the tie both ways
+	for i := 0; i < 100; i++ {
+		if s := v.String(); s != "10GiB" {
+			t.Fatalf("Expected 10GiB, but got %s\n", s)
+		}
+	}
+}

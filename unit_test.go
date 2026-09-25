@@ -67,6 +67,27 @@ var mapTests = []struct {
 			"TiB": 1024 * 1024 * 1024 * 1024,
 		},
 		expectFail: true,
+	}, {
+		description: "Invalid map 4 (default unit does not match a named unit)",
+		mapping: map[string]int64{
+			"":  1024 * 1024,
+			"B": 1,
+		},
+		expectFail: true,
+	}, {
+		description: "Invalid map 5 (default unit is the only mapping to multiplier 1)",
+		mapping: map[string]int64{
+			"":  1,
+			"K": 1024,
+		},
+		expectFail: true,
+	}, {
+		description: "Invalid map 6 (default unit maps to multiplier 0)",
+		mapping: map[string]int64{
+			"":  0,
+			"B": 1,
+		},
+		expectFail: true,
 	},
 }
 
@@ -158,5 +179,79 @@ func TestUnit(t *testing.T) {
 		if v.ExplicitSign != test.explicitSign {
 			t.Fatalf("Expected that test '%s' has explicit Sign %d, but got %d\n", test.in, test.explicitSign, v.ExplicitSign)
 		}
+	}
+}
+
+// TestStringDeterministic checks that String() picks the same unit
+// regardless of map iteration order and that the result parses back.
+func TestStringDeterministic(t *testing.T) {
+	tests := []struct {
+		description string
+		mapping     map[string]int64
+		in, out     string
+	}{
+		{
+			description: "named unit wins the tie against the default unit",
+			mapping:     map[string]int64{"": G, "B": 1, "GiB": G},
+			in:          "10",
+			out:         "10GiB",
+		}, {
+			description: "default unit is never printed",
+			mapping:     map[string]int64{"": M, "B": 1, "M": M},
+			in:          "3",
+			out:         "3M",
+		}, {
+			description: "default unit with multiplier 1",
+			mapping:     map[string]int64{"": 1, "B": 1, "K": K},
+			in:          "1500",
+			out:         "1500B",
+		}, {
+			description: "equal multipliers with equal length: lexicographically smaller name",
+			mapping:     DefaultUnits,
+			in:          "2000",
+			out:         "2KB",
+		}, {
+			description: "equal multipliers with different length: shorter name",
+			mapping:     map[string]int64{"B": 1, "K": K, "KiB": K},
+			in:          "2K",
+			out:         "2K",
+		}, {
+			description: "explicit sign is kept",
+			mapping:     map[string]int64{"": M, "B": 1, "M": M},
+			in:          "-3",
+			out:         "-3M",
+		},
+	}
+
+	for _, test := range tests {
+		u := MustNewUnit(test.mapping)
+		v, err := u.ValueFromString(test.in)
+		if err != nil {
+			t.Fatalf("Test case \"%s\": '%s' returned an unexpected error: %v\n", test.description, test.in, err)
+		}
+		// map iteration order is random, so repeat to catch order dependence
+		for i := 0; i < 100; i++ {
+			if s := v.String(); s != test.out {
+				t.Fatalf("Test case \"%s\": expected %s, but got %s\n", test.description, test.out, s)
+			}
+		}
+		back, err := u.ValueFromString(v.String())
+		if err != nil {
+			t.Fatalf("Test case \"%s\": String() result %q does not parse back: %v\n", test.description, v.String(), err)
+		}
+		if back.Value != v.Value {
+			t.Fatalf("Test case \"%s\": round trip changed value from %d to %d\n", test.description, v.Value, back.Value)
+		}
+	}
+}
+
+// TestNewUnitCopiesMapping checks that later changes to the input map do
+// not affect the Unit.
+func TestNewUnitCopiesMapping(t *testing.T) {
+	m := map[string]int64{"B": 1, "K": K}
+	u := MustNewUnit(m)
+	m["M"] = M
+	if _, err := u.ValueFromString("1M"); err == nil {
+		t.Fatalf("Expected that unit 'M' added after NewUnit is not valid\n")
 	}
 }

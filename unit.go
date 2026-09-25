@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"unicode"
 )
@@ -79,25 +80,68 @@ type Value struct {
 
 // Unit is a map of unit names to conversion multipliers.
 //
-// There must be a unit that maps to 1.
+// There must be a named unit that maps to 1.
+//
+// The empty string is special: it defines the default unit, i.e., the
+// multiplier applied to input without a unit suffix (see Set). It must alias
+// one of the named units in the mapping. If no default unit is defined,
+// input without a unit suffix is treated as multiplier 1. The default unit
+// is never used for output; String always prints a named unit.
 type Unit struct {
 	mapping map[string]int64
+
+	// ordered holds the named units sorted by preference for String():
+	// largest multiplier first, and for equal multipliers shorter names,
+	// then lexicographically smaller names.
+	ordered []unitEntry
+}
+
+type unitEntry struct {
+	name string
+	mult int64
 }
 
 // NewUnit returns a new Unit given a mapping 'm'.
+//
+// The mapping is copied; later changes to 'm' do not affect the Unit.
 func NewUnit(m map[string]int64) (*Unit, error) {
-	var found bool
-	for _, mult := range m {
-		if mult == 1 {
-			found = true
-		} else if mult == 0 {
+	var found, defaultFound bool
+	mapping := make(map[string]int64, len(m))
+	ordered := make([]unitEntry, 0, len(m))
+	defaultMult, hasDefault := m[""]
+	for name, mult := range m {
+		if mult == 0 {
 			return nil, fmt.Errorf("mapping contains unit that maps to illegal multiplier 0 for %v", m)
 		}
+		mapping[name] = mult
+		if name == "" {
+			continue
+		}
+		if mult == 1 {
+			found = true
+		}
+		if hasDefault && mult == defaultMult {
+			defaultFound = true
+		}
+		ordered = append(ordered, unitEntry{name, mult})
 	}
 	if !found {
-		return nil, fmt.Errorf("could not find unit that maps to multiplier 1 for %v", m)
+		return nil, fmt.Errorf("could not find named unit that maps to multiplier 1 for %v", m)
 	}
-	return &Unit{m}, nil
+	if hasDefault && !defaultFound {
+		return nil, fmt.Errorf("default unit %d does not match any named unit for %v", defaultMult, m)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		a, b := ordered[i], ordered[j]
+		if a.mult != b.mult {
+			return a.mult > b.mult
+		}
+		if len(a.name) != len(b.name) {
+			return len(a.name) < len(b.name)
+		}
+		return a.name < b.name
+	})
+	return &Unit{mapping: mapping, ordered: ordered}, nil
 }
 
 // MustNewUnit is like NewUnit but panics if the mapping 'm' is not valid.
@@ -147,26 +191,28 @@ func (u *Unit) ValueFromString(str string) (*Value, error) {
 }
 
 // String implements flag.Value.String and fmt.Stringer.
+//
+// The value is printed using the named unit with the largest multiplier that
+// divides it evenly. If several units share that multiplier, the shortest
+// name is preferred, then the lexicographically smallest one. The default
+// unit "" is never used. The result is deterministic and can be parsed back
+// by Set.
 func (s Value) String() string {
-	var bestName string
-	bestMult := int64(1)
 	if s.unit == nil {
 		return ""
 	}
-	for name, mult := range s.unit.mapping {
-		if s.Value%mult == 0 && mult >= bestMult {
-			bestName = name
-			bestMult = mult
+	best := unitEntry{mult: 1}
+	for _, e := range s.unit.ordered {
+		if s.Value%e.mult == 0 {
+			best = e
+			break
 		}
 	}
 	var sign string
 	if s.ExplicitSign == Positive {
 		sign = "+"
 	}
-	if bestName == "" {
-		return fmt.Sprintf("%s%d (no unit)", sign, s.Value)
-	}
-	return fmt.Sprintf("%s%d%s", sign, s.Value/bestMult, bestName)
+	return fmt.Sprintf("%s%d%s", sign, s.Value/best.mult, best.name)
 }
 
 // Get implements flag.Getter.Get.
